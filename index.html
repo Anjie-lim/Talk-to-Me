@@ -73,11 +73,22 @@
                     </div>
                 </div>
             </div>
-            <div id="menu-screen" class="screen active">
-                <h2 style="font-size: 18px; margin-bottom: 4px;">Simulation Portal</h2>
-                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">Choose a module to start</p>
-                <div id="menu-options-container"></div>
-            </div>
+           <div id="menu-screen" class="screen active">
+    <h2 style="font-size: 18px; margin-bottom: 4px;">Simulation Portal</h2>
+    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Choose a module to start</p>
+    
+    <!-- Instruction Card for Players -->
+    <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 12px; margin-bottom: 16px; text-align: left;">
+        <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 6px;">🎮 How to Play</h4>
+        <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px; display: flex; flex-direction: column; gap: 4px;">
+            <li><strong>1. Listen:</strong> Hear your opponent's audio prompt or read the message.</li>
+            <li><strong>2. Record:</strong> Pick a response and <u>record your voice</u> reading it out loud.</li>
+            <li><strong>3. Survive:</strong> Every choice shifts the storyline. Make smart moves to reach a winning ending!</li>
+        </ul>
+    </div>
+
+    <div id="menu-options-container"></div>
+</div>
             <div id="chat-screen" class="screen">
                 <div class="chat-header">
                     <div class="avatar" id="sim-avatar">??</div>
@@ -529,24 +540,50 @@ function rebuildSimMenuUi() {
         });
     }
 function executeTextToSpeechSynthesis(scriptContentText, targetGenderProfile) {
-        if (!('speechSynthesis' in window)) return;
+    if (!('speechSynthesis' in window)) return;
+
+    const speakWithVoice = () => {
         const utteranceInstance = new SpeechSynthesisUtterance(scriptContentText);
         const engineSystemVoicesList = window.speechSynthesis.getVoices();
         
         if (engineSystemVoicesList.length > 0) {
             const normalizedGenderKey = targetGenderProfile.toLowerCase();
+            
             if (normalizedGenderKey === 'female') {
-                utteranceInstance.voice = engineSystemVoicesList.find(voice => 
-                    voice.name.toLowerCase().includes('female') || voice.name.toLowerCase().includes('zira') || voice.name.toLowerCase().includes('google us english')
-                ) || engineSystemVoicesList[0];
+                // Expanded keyword search covering common Windows, macOS, and mobile female voices
+                utteranceInstance.voice = engineSystemVoicesList.find(v => {
+                    const n = v.name.toLowerCase();
+                    return n.includes('female') || n.includes('zira') || n.includes('samantha') || 
+                           n.includes('victoria') || n.includes('karen') || n.includes('helen') || 
+                           n.includes('hazel') || n.includes('catherine') || (n.includes('google') && n.includes('en-us') && !n.includes('male'));
+                }) || engineSystemVoicesList[0];
+                
+                // Safety adjustment: nudge pitch slightly higher if a generic voice is forced
+                utteranceInstance.pitch = 1.2; 
             } else {
-                utteranceInstance.voice = engineSystemVoicesList.find(voice => 
-                    voice.name.toLowerCase().includes('male') || voice.name.toLowerCase().includes('david') || voice.name.toLowerCase().includes('mark')
-                ) || engineSystemVoicesList[0];
+                utteranceInstance.voice = engineSystemVoicesList.find(v => {
+                    const n = v.name.toLowerCase();
+                    return n.includes('male') || n.includes('david') || n.includes('mark') || n.includes('george');
+                }) || engineSystemVoicesList[0];
+                
+                utteranceInstance.pitch = 0.9;
             }
         }
+        
         window.speechSynthesis.speak(utteranceInstance);
+    };
+
+    // Fix for asynchronous voice loading bug across Chrome/Edge/Safari
+    let voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => {
+            speakWithVoice();
+            window.speechSynthesis.onvoiceschanged = null; // Clear listener
+        };
+    } else {
+        speakWithVoice();
     }
+}
 function handleDialogueAudioPlayback(nodeObject, fallbackGenderStr) {
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         globalAudioPlayerElement.pause();
