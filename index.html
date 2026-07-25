@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Comprehension & Fluency Simulator</title>
+    <style>
+        :root { --bg-color: #f8fafc; --sidebar-bg: #ffffff; --primary: #4f46e5; --primary-hover: #4338ca; --text-dark: #0f172a; --text-muted: #475569; --border: #e2e8f0; --bubble-incoming: #f1f5f9; --bubble-outgoing: #4f46e5; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .preview-panel { width: 100%; max-width: 450px; height: 100%; display: flex; justify-content: center; align-items: center; position: relative; }
+        .phone-wrapper { width: 100%; max-width: 380px; height: 760px; background: #111; border-radius: 40px; padding: 10px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
+        .phone-screen { background-color: #ffffff; width: 100%; height: 100%; border-radius: 32px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        .chat-header { background-color: #ffffff; border-bottom: 1px solid var(--border); padding: 14px; display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
+        .header-info h2 { font-size: 14px; color: var(--text-dark); }
+        .header-info p { font-size: 11px; color: var(--success); }
+        .screen { display: none; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
+        .screen.active { display: flex; }
+        #menu-screen { padding: 50px 20px 30px 20px; justify-content: flex-start; text-align: center; overflow-y: auto; }
+        .menu-btn { width: 100%; background: white; border: 2px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; text-align: left; cursor: pointer; }
+        .chat-history { flex-grow: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #fafafa; }
+        .msg-wrapper { display: flex; flex-direction: column; max-width: 85%; animation: fadeIn 0.3s ease forwards; }
+        .msg-wrapper.incoming { align-self: flex-start; }
+        .msg-wrapper.outgoing { align-self: flex-end; }
+        .msg { padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
+        .msg-wrapper.incoming .msg { background-color: var(--bubble-incoming); color: var(--primary); border-top-left-radius: 4px; cursor: pointer; font-weight: 500; border: 1px solid rgba(79, 70, 229, 0.15); }
+        .msg-wrapper.outgoing .msg { background-color: var(--bubble-outgoing); color: white; border-top-right-radius: 4px; }
+        .msg-audio-player { margin-top: 6px; width: 100%; max-width: 200px; height: 25px; border-radius: 4px; }
+        .action-panel { background: white; border-top: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+        .choice-btn { background: #f9fafb; border: 1px solid var(--border); padding: 10px 12px; border-radius: 10px; cursor: pointer; text-align: left; font-size: 12px; }
+        .btn { padding: 8px 14px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+        .btn-danger { background: var(--danger); }
+        .primer-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; justify-content: center; align-items: center; padding: 16px; }
+        .primer-overlay.active { display: flex; }
+        .primer-modal { background: white; border-radius: 20px; padding: 20px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .recorder-modal { background: white; border-radius: 20px; padding: 24px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .script-quote-box { background: #f8fafc; border-left: 4px solid var(--primary); padding: 12px; font-style: italic; font-size: 13px; text-align: left; margin: 14px 0; color: var(--text-dark); max-height: 120px; overflow-y: auto; }
+        .recording-pulse-indicator { width: 14px; height: 14px; background-color: var(--danger); border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse-glow 1s infinite alternate; vertical-align: middle; }
+        .outcome-card { padding: 14px; border-radius: 12px; text-align: center; margin-top: 10px; }
+        .outcome-card.win { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .outcome-card.fail { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+        .outcome-card.excuse { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-glow { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.1); } }
+    </style>
+</head>
+<body>
+<div class="preview-panel">
+    <div class="phone-wrapper">
+        <div class="phone-screen">
+            <div id="primer-overlay" class="primer-overlay">
+                <div class="primer-modal">
+                    <h3 style="margin-bottom: 12px;">📋 Project Briefing</h3>
+                    <p style="font-size: 11px; font-weight: bold; color: var(--primary);">ASSIGNMENT ROLE</p>
+                    <p id="p-role" style="font-size: 13px; margin-bottom: 10px; color: var(--text-muted);"></p>
+                    <p style="font-size: 11px; font-weight: bold; color: var(--primary);">CONTEXT SCENARIO</p>
+                    <p id="p-situation" style="font-size: 13px; margin-bottom: 14px; color: var(--text-muted);"></p>
+                    <button class="btn" style="width: 100%;" onclick="launchLiveSimulationCall()">Initiate Connection</button>
+                </div>
+            </div>
+            <div id="recorder-overlay" class="primer-overlay">
+                <div class="recorder-modal">
+                    <h4 style="font-size: 14px;">🎙️ Verbal Production Check</h4>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Read the option line out loud to proceed:</p>
+                    <div class="script-quote-box" id="recorder-script-text"></div>
+                    <div style="margin-bottom: 16px; height: 20px;" id="recorder-status-msg"><span style="font-size: 12px; color: var(--text-muted);">Ready to record</span></div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="btn" id="btn-start-record" onclick="startUserVoiceCapture()">🔴 Record</button>
+                        <button class="btn btn-danger" id="btn-stop-record" onclick="stopUserVoiceCapture()" disabled>⏹️ Stop</button>
+                        <button class="btn btn-secondary" id="btn-cancel-record" onclick="closeVoiceRecorderModal()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <div id="menu-screen" class="screen active">
+                <h2 style="font-size: 18px; margin-bottom: 4px;">Simulation Portal</h2>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">Choose a module to start</p>
+                <div id="menu-options-container"></div>
+            </div>
+            <div id="chat-screen" class="screen">
+                <div class="chat-header">
+                    <div class="avatar" id="sim-avatar">??</div>
+                    <div class="header-info">
+                        <h2 id="sim-name">Character</h2>
+                        <p>● Connected Status</p>
+                    </div>
+                    <button class="btn btn-secondary" style="margin-left: auto; padding: 4px 8px; font-size: 11px;" onclick="abortSimulationCall()">Quit</button>
+                </div>
+                <div class="chat-history" id="sim-chat-history"></div>
+                <div class="action-panel" id="sim-options-panel"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+let scenarios = {
+    "pre_intermediate": {
+        "label": "Pre-Intermediate (Tech Topic)",
+        "partner": "Sarah (Project Manager)",
+        "initials": "S(M",
+        "gender": "female",
+        "primer": {
+            "role": "Junior Web Developer",
+            "situation": "The new homepage UI design is due by the end of the day. You have hit bugs."
+        },
+        "start_node": "turn1",
+        "nodes": {
+            "turn1": {
+                "text": "Hi! Is the website homepage design completely ready to deliver to the client today?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Hi Sarah. I am encountering some technical bugs. Can we get one extra day?",
+                        "next": "turn2_ok"
+                    },
+                    {
+                        "text": "Yes! It is completely finished.",
+                        "next": "fail_liar"
+                    }
+                ]
+            },
+            "turn2_ok": {
+                "text": "One day is tight but doable. What technical layout bug is holding things up?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "The responsive mobile flex containers are overlapping on small screens.",
+                        "next": "win_clear"
+                    }
+                ]
+            },
+            "win_clear": {
+                "text": "Understood. Thanks for explaining clearly. Send it over tomorrow afternoon.",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "win",
+                "end_label": "🏆 Complete",
+                "summary": "Success! You preserved project parameters through clear communication.",
+                "choices": []
+            },
+            "fail_liar": {
+                "text": "Great, send it now! Wait... why are you hesitating? You haven't started!",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "💀 Terminated",
+                "summary": "Critical Bad End. Truth parameters failed.",
+                "choices": []
+            }
+        }
+    },
+    "track_1783088887285": {
+        "label": "Hospitality",
+        "partner": "Leo (Front Desk Supervisor)",
+        "initials": "L(D",
+        "gender": "male",
+        "primer": {
+            "role": "Front Office Manager",
+            "situation": "A VIP travel influencer's luxury suite was accidentally checked into by another guest due to a system glitch. The influencer is now waiting at the desk, furious, while a massive tour bus has just pulled up outside for check-in. You have 4 turns to handle the chaos, manage your panicked supervisor, and save the hotel's online reputation."
+        },
+        "start_node": "start",
+        "nodes": {
+            "start": {
+                "text": "Boss, we have a major crisis. The system glitched and assigned Room 412—the Penthouse—to a walk-in guest an hour ago. The problem is, that room was reserved for Jessica Sterling, the luxury travel influencer who has 2 million followers. She just arrived, her suite isn't open, we are completely booked tonight, and she is already filming a live video at the desk about our 'incompetence.' What do I do?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Go out there immediately, pull Jessica aside to a quiet area, apologize sincerely, and offer her our Executive Boardroom converted into a temporary private lounge while we figure this out",
+                        "next": "RouteA"
+                    },
+                    {
+                        "text": "Tell the walk-in guest in the Penthouse that there was a system error, pack their bags for them, and move them to a standard room so Jessica can have her suite.\"",
+                        "next": "RouteB"
+                    },
+                    {
+                        "text": "Tell Leo to offer Jessica a full refund and tell her she’ll have to find another hotel since we are completely sold out.",
+                        "next": "BadRoute1"
+                    }
+                ]
+            },
+            "end_node": {
+                "text": "Session concluded successfully.",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "win",
+                "end_label": "🏆 Complete",
+                "summary": "Initial branch verified.",
+                "choices": []
+            },
+            "RouteA": {
+                "text": "Great call, she stepped away from the desk and stopped filming. She's drinking champagne in the boardroom but says she expects a luxury suite within the hour or the video goes live. To make matters worse, that 50-person tour bus just arrived at the lobby doors. The front desk is about to get slammed and I'm totally short-staffed. How do we split our focus?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Leo, you handle the tour bus check-ins using the express tablets. I am going to call our sister property down the street right now to see if they can clear a VIP suite for Jessica.",
+                        "next": "GoodRoute1"
+                    },
+                    {
+                        "text": "Ignore the tour bus for five minutes. Come with me to the boardroom so we can both brainstorm a massive compensation package to offer Jessica so she stays here in a standard room.",
+                        "next": "SalvageableRoute1"
+                    },
+                    {
+                        "text": "Tell the tour bus guide they have to wait outside in the lounge for 30 minutes until we resolve the influencer situation",
+                        "next": "BadRoute2"
+                    }
+                ]
+            },
+            "RouteB": {
+                "text": "Uh oh... the walk-in guest in the Penthouse is a prominent corporate lawyer. When housekeeping went up to move his bags, he refused to leave and threatened to sue us for breaching privacy and contract laws. Jessica saw the commotion and is back at the desk, demanding her keys. What's the plan?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Apologize to Jessica again, be honest that the room is physically occupied, and offer to pay for her stay at our competitor's 5-star hotel down the street plus free spa vouchers here.",
+                        "next": "SalvageableRoute1"
+                    },
+                    {
+                        "text": "Go up to the Penthouse yourself to personally negotiate with the lawyer, offering him free future stays if he vacates the room for our VIP.",
+                        "next": "SalvageableRoute1"
+                    },
+                    {
+                        "text": "Have security deactivate the lawyer's key card. It's our hotel, we have the right to reassign rooms in an emergency",
+                        "next": "BadRoute3"
+                    }
+                ]
+            },
+            "BadRoute1": {
+                "text": "Boss... she didn't take it well. She posted a scathing review live on her feed. Her followers are spamming our hotel page with 1-star reviews right now. The General Manager just called my desk screaming. He wants to see you in his office immediately. ",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: PR Nightmare.\"",
+                "summary": "A refund doesn't erase an inconvenience. By kicking a high-profile guest to the curb without attempting service recovery, you turned an internal technical glitch into a public relations war that you couldn't win.",
+                "choices": []
+            },
+            "GoodRoute1": {
+                "text": "The tour bus group is being checked in smoothly! But bad news from the sister property: they are sold out too. However, housekeeping just informed me that our 'Owner's Villa'—the private suite reserved exclusively for the hotel owner's family—is clean and empty. The owner isn't coming this weekend, but using it without permission is strictly against hotel policy. Do we dare?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Give Jessica the Owner's Villa. I will write a formal email to the owner right now explaining that this saved us from a million-dollar PR disaster. I'll take full responsibility.",
+                        "next": "Clean_Resolution"
+                    },
+                    {
+                        "text": "Don't risk the Owner's Villa. Let's offer Jessica our best available Executive Suite, but completely customize it: fill it with complimentary premium amenities, personalized gifts, and a free dinner at our Michelin-starred restaurant.",
+                        "next": "High_Risk"
+                    },
+                    {
+                        "text": "Just tell Jessica we have no suites left anywhere. Ask her to post a positive review about our 'customer service response' in exchange for a free future stay",
+                        "next": "Bad_Route_4"
+                    }
+                ]
+            },
+            "SalvageableRoute1": {
+                "text": "Okay, we managed to avoid a lawsuit/fight, but Jessica is completely out of patience. We have her sitting in a standard room right now, which she hates because it doesn't have the 'aesthetic view' she needs for her content. She says she is about to post a negative story detailing the whole experience. How do we turn this around in the next 10 minutes?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Send our Executive Chef up to her room right now with a bespoke, photogenic tasting menu tailored specifically for her social media feed, along with a handwritten apology note",
+                        "next": "High_Risk"
+                    },
+                    {
+                        "text": "Offer to host an exclusive VIP rooftop cocktail hour just for her and her followers tonight, completely on the house, so she gets her content",
+                        "next": "High_Risk"
+                    },
+                    {
+                        "text": "Tell her that if she posts a negative review, we will be forced to flag her account to the major travel agency networks for misconduct",
+                        "next": "Bad_Route_5"
+                    }
+                ]
+            },
+            "BadRoute2": {
+                "text": "The tour guide is furious. They are a corporate group that books with us five times a year, and the guide just threatened to cancel their entire annual contract because we left them sitting on the bus. The lobby is in total chaos. ",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Lost Corporate Client.",
+                "summary": "You committed the classic hospitality sin of neglecting guaranteed, high-volume revenue to chase a single VIP. In trying to put out one fire, you completely burned your relationship with a loyal corporate account.",
+                "choices": []
+            },
+            "BadRoute3": {
+                "text": "Security locked him out, and the lawyer went ballistic. He called the police reporting a theft of his belongings by hotel staff. The local news is outside now. This is a total disaster. ",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Legal Nightmare.",
+                "summary": "Once a guest is checked in, that room is legally their private domain. Forcibly evicting a guest—especially a lawyer—without a critical safety reason violates basic tenant-innkeeper laws and exposes the property to massive liability.",
+                "choices": []
+            },
+            "Clean_Resolution": {
+                "text": "The Owner's Villa was a massive hit! Jessica is absolutely obsessed with the decor and is already posting stunning photos tagging our hotel. But the General Manager just walked past the desk and noticed her posting from the private villa. He's heading your way to ask who authorized opening that room. What's your final move?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Walk straight up to the GM, show him the booming positive social media metrics Jessica just generated, and explain that using the empty villa protected our brand equity.",
+                        "next": "Good_Ending"
+                    },
+                    {
+                        "text": "Try to hide it. Tell the GM that Jessica is actually in a standard room and that her photos must be old content from a different trip",
+                        "next": "Bad_Ending_Final"
+                    },
+                    {
+                        "text": "Blame the Front Desk system glitch. Tell the GM the system automatically upgraded her to the villa and we couldn't stop it",
+                        "next": "Bittersweet_Ending"
+                    }
+                ]
+            },
+            "High_Risk": {
+                "text": "It's the moment of truth. Jessica is checking her phone. The amenities/food we sent up definitely softened the blow, but she's actively typing out her final review of her stay. She looks like she's on the fence between praising our effort or blasting our mistake. Do we leave it alone, or make one final gesture?",
+                "audio_url": "",
+                "is_end": false,
+                "end_type": "win",
+                "end_label": "",
+                "summary": "",
+                "choices": [
+                    {
+                        "text": "Personally hand-deliver a complimentary voucher for a free 3-night weekend stay in our Penthouse for her next visit, ensuring her we've fixed our system glitch.",
+                        "next": "Bittersweet_Ending"
+                    },
+                    {
+                        "text": "Do nothing else. We've already given away hundreds of dollars in free food and upgrades. If she's still mad, we can't please everyone.",
+                        "next": "Bad_Ending_6"
+                    },
+                    {
+                        "text": "Have the front desk agent tell her we will comp her entire current stay if she shows us a 5-star draft before she clicks publish.",
+                        "next": "Bad_Ending_7"
+                    }
+                ]
+            },
+            "Bad_Route_4": {
+                "text": "She laughed in my face when I asked for a good review. She immediately uploaded her recorded video with the caption: 'Luxury hotel tries to bribe me after losing my room.' It's viral.",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Brand Ruined.",
+                "summary": "You tried to manipulate the situation before fixing the actual problem. Asking an unsatisfied influencer for a positive review in exchange for future \"bribes\" gives them perfect ammunition to paint your brand as deceptive online.",
+                "choices": []
+            },
+            "Bad_Route_5": {
+                "text": "She posted screenshots of your threat. Now the internet thinks we bully our guests. The corporate office just suspended our entire management team pending an investigation.",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Terminated",
+                "summary": "You escalated a service issue into an active threat. Threatening a modern creator with industry blacklisting will backfire 100% of the time, as they have the direct platform to expose your retaliation to millions of people.",
+                "choices": []
+            },
+            "Good_Ending": {
+                "text": "Incredible! The GM saw the viral reach, agreed it was a brilliant save, and the owner praised your quick thinking. Jessica's review called us 'the gold standard of hospitality.' You're a legend! ",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "win",
+                "end_label": "GOOD ENDING: Master of Service Recovery",
+                "summary": "",
+                "choices": []
+            },
+            "Bad_Ending_Final": {
+                "text": "The GM didn't buy it. He went up to the villa himself to check, caught us in a lie, and wrote you up for insubordination and falsifying reports.",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Loss of Integrity",
+                "summary": "You let fear of management make you dishonest. In hospitality leadership, taking accountability for an unconventional decision can be respected; outright lying to your General Manager guarantees termination.",
+                "choices": []
+            },
+            "Bittersweet_Ending": {
+                "text": "It worked, but it cost us. She posted a polite review praising our service recovery. The GM is glad we avoided disaster, but our department's comp budget is blown out. ",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "excuse",
+                "end_label": "BITTERSWEET ENDING: Saved by a Hair",
+                "summary": "",
+                "choices": []
+            },
+            "Bad_Ending_6": {
+                "text": "She posted the negative review anyway, calling out the 'cheap perks' we offered instead of just giving her a room. The GM is furious we spent money and still got bad press. ",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Expensive Failure",
+                "summary": "You stopped halfway through your service recovery. If you choose to compensate a guest, you must cross the finish line to secure their satisfaction. Giving up at the end meant wasting hotel budget for zero return.",
+                "choices": []
+            },
+            "Bad_Ending_7": {
+                "text": "She found this incredibly tacky and updated her story to show how we hold guests hostage for reviews. The brand value plummeted.",
+                "audio_url": "",
+                "is_end": true,
+                "end_type": "fail",
+                "end_label": "Game Over: Coercive Tactics",
+                "summary": "Review extortion violates hotel policies and major review platform terms of service. Forcing a guest to show a 5-star draft before providing compensation strips away all authenticity and destroys brand trust.",
+                "choices": []
+            }
+        }
+    }
+};
+function abortSimulationCall() {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        globalAudioPlayerElement.pause();
+        document.getElementById('chat-screen').classList.remove('active');
+        document.getElementById('menu-screen').classList.add('active');
+        closeVoiceRecorderModal();
+    }
+function advanceDialogueSimulationTree(playerChoiceText, nextNodeKey, userRecordedAudioUrl = null) {
+        const history = document.getElementById('sim-chat-history');
+        
+        const msgWrap = document.createElement('div');
+        msgWrap.className = 'msg-wrapper outgoing';
+        
+        // Renders choice text + a native browser inline player containing their voice clip!
+        let audioMarkup = userRecordedAudioUrl ? 
+            `<br><audio controls src="${userRecordedAudioUrl}" class="msg-audio-player"></audio>` : '';
+            
+        msgWrap.innerHTML = `<div class="msg">${playerChoiceText}${audioMarkup}</div>`;
+        history.appendChild(msgWrap);
+        history.scrollTop = history.scrollHeight;
+
+        activeSimNodeKey = nextNodeKey;
+        
+        document.getElementById('sim-options-panel').innerHTML = '<span style="font-size:12px; color:#aaa; padding:10px;">Typing...</span>';
+        setTimeout(() => {
+            renderSimulationStepNode();
+        }, 800);
+    }
+function renderSimulationStepNode() {
+        const trackData = scenarios[activeSimTrackKey];
+        const nodeData = trackData.nodes[activeSimNodeKey];
+        const history = document.getElementById('sim-chat-history');
+        const optionsPanel = document.getElementById('sim-options-panel');
+
+        optionsPanel.innerHTML = '';
+
+        const msgWrap = document.createElement('div');
+        msgWrap.className = 'msg-wrapper incoming';
+        msgWrap.innerHTML = `
+            <div class="msg" onclick="replayActiveAudioNode('${activeSimTrackKey}', '${activeSimNodeKey}')">
+                <span>🔊 [Listen to Message]</span>
+            </div>
+        `;
+        history.appendChild(msgWrap);
+        history.scrollTop = history.scrollHeight;
+
+        handleDialogueAudioPlayback(nodeData, trackData.gender);
+
+        if (nodeData.is_end) {
+            const outcomeCard = document.createElement('div');
+            outcomeCard.className = `outcome-card ${nodeData.end_type}`;
+            outcomeCard.innerHTML = `
+                <strong style="font-size:14px;">${nodeData.end_label || 'Simulation Ended'}</strong>
+                <p style="font-size:12px; margin-top:4px;">${nodeData.summary || ''}</p>
+                <button class="btn btn-secondary" style="margin-top:10px; width:100%; padding:6px;" onclick="abortSimulationCall()">Return to Portal</button>
+            `;
+            optionsPanel.appendChild(outcomeCard);
+        } else {
+            nodeData.choices.forEach(ch => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.innerText = ch.text;
+                // INTERCEPTS BUTTON HIT TO REQUIRE AUDIO CAPTURE OVRERLAY FIRST
+                btn.onclick = () => openVoiceRecorderModal(ch.text, ch.next);
+                optionsPanel.appendChild(btn);
+            });
+        }
+    }
+function launchLiveSimulationCall() {
+        document.getElementById('primer-overlay').classList.remove('active');
+        document.getElementById('menu-screen').classList.remove('active');
+        document.getElementById('chat-screen').classList.add('active');
+
+        const trackData = scenarios[activeSimTrackKey];
+        document.getElementById('sim-name').innerText = trackData.partner;
+        document.getElementById('sim-avatar').innerText = trackData.initials || "??";
+        document.getElementById('sim-chat-history').innerHTML = '';
+
+        activeSimNodeKey = trackData.start_node;
+        renderSimulationStepNode();
+    }
+function selectTrackAndTriggerBriefingOverlay(trackKey) {
+        saveActiveNodeChanges();
+        activeSimTrackKey = trackKey;
+        const trackData = scenarios[trackKey];
+
+        document.getElementById('p-role').innerText = trackData.primer.role;
+        document.getElementById('p-situation').innerText = trackData.primer.situation;
+        document.getElementById('primer-overlay').classList.add('active');
+    }
+function rebuildSimMenuUi() {
+        const container = document.getElementById('menu-options-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        Object.keys(scenarios).forEach(key => {
+            const btn = document.createElement('button');
+            btn.className = 'menu-btn';
+            btn.innerHTML = `<strong>${scenarios[key].label}</strong><br><small style="color:var(--text-muted);">Opponent: ${scenarios[key].partner}</small>`;
+            btn.onclick = () => selectTrackAndTriggerBriefingOverlay(key);
+            container.appendChild(btn);
+        });
+    }
+function executeTextToSpeechSynthesis(scriptContentText, targetGenderProfile) {
+        if (!('speechSynthesis' in window)) return;
+        const utteranceInstance = new SpeechSynthesisUtterance(scriptContentText);
+        const engineSystemVoicesList = window.speechSynthesis.getVoices();
+        
+        if (engineSystemVoicesList.length > 0) {
+            const normalizedGenderKey = targetGenderProfile.toLowerCase();
+            if (normalizedGenderKey === 'female') {
+                utteranceInstance.voice = engineSystemVoicesList.find(voice => 
+                    voice.name.toLowerCase().includes('female') || voice.name.toLowerCase().includes('zira') || voice.name.toLowerCase().includes('google us english')
+                ) || engineSystemVoicesList[0];
+            } else {
+                utteranceInstance.voice = engineSystemVoicesList.find(voice => 
+                    voice.name.toLowerCase().includes('male') || voice.name.toLowerCase().includes('david') || voice.name.toLowerCase().includes('mark')
+                ) || engineSystemVoicesList[0];
+            }
+        }
+        window.speechSynthesis.speak(utteranceInstance);
+    }
+function handleDialogueAudioPlayback(nodeObject, fallbackGenderStr) {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        globalAudioPlayerElement.pause();
+        globalAudioPlayerElement.currentTime = 0;
+
+        if (nodeObject.audio_url && nodeObject.audio_url.trim() !== "") {
+            globalAudioPlayerElement.src = nodeObject.audio_url.trim();
+            globalAudioPlayerElement.play().catch(err => {
+                console.warn("Custom track source failed. Cascading to TTS fallback.", err);
+                executeTextToSpeechSynthesis(nodeObject.text, fallbackGenderStr);
+            });
+        } else {
+            executeTextToSpeechSynthesis(nodeObject.text, fallbackGenderStr);
+        }
+    }
+function replayActiveAudioNode(trackKey, nodeKey) {
+        const trackData = scenarios[trackKey];
+        const nodeData = trackData.nodes[nodeKey];
+        if (nodeData) {
+            handleDialogueAudioPlayback(nodeData, trackData.gender);
+        }
+    }
+function openVoiceRecorderModal(choiceText, nextNodeKey) {
+        pendingTargetChoiceText = choiceText;
+        pendingTargetNextNodeKey = nextNodeKey;
+
+        document.getElementById('recorder-script-text').innerText = `"${choiceText}"`;
+        document.getElementById('recorder-status-msg').innerHTML = `<span style="color:var(--text-muted);">Ready to record</span>`;
+        
+        document.getElementById('btn-start-record').disabled = false;
+        document.getElementById('btn-stop-record').disabled = true;
+
+        document.getElementById('recorder-overlay').classList.add('active');
+    }
+function closeVoiceRecorderModal() {
+        if (mediaRecorderInstance && mediaRecorderInstance.state !== "inactive") {
+            mediaRecorderInstance.stop();
+        }
+        document.getElementById('recorder-overlay').classList.remove('active');
+        audioDataChunks = [];
+    }
+async function startUserVoiceCapture() {
+        audioDataChunks = [];
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorderInstance = new MediaRecorder(audioStream);
+            
+            mediaRecorderInstance.ondataavailable = function(event) {
+                if (event.data.size > 0) audioDataChunks.push(event.data);
+            };
+
+            mediaRecorderInstance.onstop = function() {
+                const audioBlobData = new Blob(audioDataChunks, { type: 'audio/webm' });
+                const audioPlaybackUrl = URL.createObjectURL(audioBlobData);
+                
+                // Commit complete sequence forward
+                document.getElementById('recorder-overlay').classList.remove('active');
+                advanceDialogueSimulationTree(pendingTargetChoiceText, pendingTargetNextNodeKey, audioPlaybackUrl);
+            };
+
+            mediaRecorderInstance.start();
+            
+            document.getElementById('btn-start-record').disabled = true;
+            document.getElementById('btn-stop-record').disabled = false;
+            document.getElementById('recorder-status-msg').innerHTML = `
+                <span style="color:var(--danger); font-weight:bold;">
+                    <span class="recording-pulse-indicator"></span> Recording Live Audio...
+                </span>`;
+        } catch (err) {
+            alert("Microphone configuration access denied or unsupported. Please check system context security scopes.");
+            console.error(err);
+        }
+    }
+function stopUserVoiceCapture() {
+        if (mediaRecorderInstance && mediaRecorderInstance.state !== "inactive") {
+            mediaRecorderInstance.stop();
+            // This triggers the mediaRecorderInstance.onstop event handler
+        }
+    }
+let activeSimTrackKey = null;
+let activeSimNodeKey = null;
+let globalAudioPlayerElement = new Audio();
+let mediaRecorderInstance = null;
+let audioDataChunks = [];
+let pendingTargetChoiceText = '';
+let pendingTargetNextNodeKey = '';
+function saveActiveNodeChanges() {} 
+window.onload = function() { rebuildSimMenuUi(); };
+</script>
+</body>
+</html>
