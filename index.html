@@ -61,18 +61,35 @@
                 </div>
             </div>
             <div id="recorder-overlay" class="primer-overlay">
-                <div class="recorder-modal">
-                    <h4 style="font-size: 14px;">🎙️ Verbal Production Check</h4>
-                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Read the option line out loud to proceed:</p>
-                    <div class="script-quote-box" id="recorder-script-text"></div>
-                    <div style="margin-bottom: 16px; height: 20px;" id="recorder-status-msg"><span style="font-size: 12px; color: var(--text-muted);">Ready to record</span></div>
-                    <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="btn" id="btn-start-record" onclick="startUserVoiceCapture()">🔴 Record</button>
-                        <button class="btn btn-danger" id="btn-stop-record" onclick="stopUserVoiceCapture()" disabled>⏹️ Stop</button>
-                        <button class="btn btn-secondary" id="btn-cancel-record" onclick="closeVoiceRecorderModal()">Cancel</button>
-                    </div>
-                </div>
-            </div>
+    <div class="recorder-modal">
+        <h4 style="font-size: 14px;">🎙️ Verbal Production Check</h4>
+        <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Read the option line out loud:</p>
+        <div class="script-quote-box" id="recorder-script-text"></div>
+        
+        <div style="margin-bottom: 14px; min-height: 24px;" id="recorder-status-msg">
+            <span style="font-size: 12px; color: var(--text-muted);">Ready to record</span>
+        </div>
+
+        <!-- Playback Review Container (Hidden until stopped) -->
+        <div id="playback-review-container" style="display: none; margin-bottom: 14px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
+            <p style="font-size: 11px; font-weight: bold; color: var(--primary); margin-bottom: 6px;">🎧 Preview Your Audio:</p>
+            <audio id="temp-audio-preview" controls style="width: 100%; height: 30px;"></audio>
+        </div>
+        
+        <!-- Controls before recording / during recording -->
+        <div style="display: flex; gap: 8px; justify-content: center;" id="recorder-action-buttons">
+            <button class="btn" id="btn-start-record" onclick="startUserVoiceCapture()">🔴 Record</button>
+            <button class="btn btn-danger" id="btn-stop-record" onclick="stopUserVoiceCapture()" disabled>⏹️ Stop</button>
+            <button class="btn btn-secondary" id="btn-cancel-record" onclick="closeVoiceRecorderModal()">Cancel</button>
+        </div>
+
+        <!-- Controls after recording (Review State) -->
+        <div style="display: none; gap: 8px; justify-content: center;" id="recorder-review-buttons">
+            <button class="btn btn-secondary" onclick="restartUserVoiceCapture()">🔄 Re-Record</button>
+            <button class="btn" onclick="submitConfirmedVoiceCapture()">✅ Submit Response</button>
+        </div>
+    </div>
+</div>
            <div id="menu-screen" class="screen active">
     <h2 style="font-size: 18px; margin-bottom: 4px;">Simulation Portal</h2>
     <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Choose a module to start</p>
@@ -606,62 +623,99 @@ function replayActiveAudioNode(trackKey, nodeKey) {
             handleDialogueAudioPlayback(nodeData, trackData.gender);
         }
     }
+let currentAudioBlobUrl = null;
+
 function openVoiceRecorderModal(choiceText, nextNodeKey) {
-        pendingTargetChoiceText = choiceText;
-        pendingTargetNextNodeKey = nextNodeKey;
+    pendingTargetChoiceText = choiceText;
+    pendingTargetNextNodeKey = nextNodeKey;
+    currentAudioBlobUrl = null;
 
-        document.getElementById('recorder-script-text').innerText = `"${choiceText}"`;
-        document.getElementById('recorder-status-msg').innerHTML = `<span style="color:var(--text-muted);">Ready to record</span>`;
-        
-        document.getElementById('btn-start-record').disabled = false;
-        document.getElementById('btn-stop-record').disabled = true;
+    document.getElementById('recorder-script-text').innerText = `"${choiceText}"`;
+    document.getElementById('recorder-status-msg').innerHTML = `<span style="font-size: 12px; color: var(--text-muted);">Ready to record</span>`;
+    
+    // Reset views
+    document.getElementById('playback-review-container').style.display = 'none';
+    document.getElementById('recorder-action-buttons').style.display = 'flex';
+    document.getElementById('recorder-review-buttons').style.display = 'none';
 
-        document.getElementById('recorder-overlay').classList.add('active');
-    }
+    document.getElementById('btn-start-record').disabled = false;
+    document.getElementById('btn-stop-record').disabled = true;
+
+    document.getElementById('recorder-overlay').classList.add('active');
+}
+
 function closeVoiceRecorderModal() {
-        if (mediaRecorderInstance && mediaRecorderInstance.state !== "inactive") {
-            mediaRecorderInstance.stop();
-        }
-        document.getElementById('recorder-overlay').classList.remove('active');
-        audioDataChunks = [];
+    if (mediaRecorderInstance && mediaRecorderInstance.state !== "inactive") {
+        mediaRecorderInstance.stop();
     }
+    document.getElementById('recorder-overlay').classList.remove('active');
+    audioDataChunks = [];
+    currentAudioBlobUrl = null;
+}
+
 async function startUserVoiceCapture() {
-        audioDataChunks = [];
-        try {
-            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderInstance = new MediaRecorder(audioStream);
-            
-            mediaRecorderInstance.ondataavailable = function(event) {
-                if (event.data.size > 0) audioDataChunks.push(event.data);
-            };
+    audioDataChunks = [];
+    try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorderInstance = new MediaRecorder(audioStream);
+        
+        mediaRecorderInstance.ondataavailable = function(event) {
+            if (event.data.size > 0) audioDataChunks.push(event.data);
+        };
 
-            mediaRecorderInstance.onstop = function() {
-                const audioBlobData = new Blob(audioDataChunks, { type: 'audio/webm' });
-                const audioPlaybackUrl = URL.createObjectURL(audioBlobData);
-                
-                // Commit complete sequence forward
-                document.getElementById('recorder-overlay').classList.remove('active');
-                advanceDialogueSimulationTree(pendingTargetChoiceText, pendingTargetNextNodeKey, audioPlaybackUrl);
-            };
-
-            mediaRecorderInstance.start();
+        mediaRecorderInstance.onstop = function() {
+            const audioBlobData = new Blob(audioDataChunks, { type: 'audio/webm' });
+            currentAudioBlobUrl = URL.createObjectURL(audioBlobData);
             
-            document.getElementById('btn-start-record').disabled = true;
-            document.getElementById('btn-stop-record').disabled = false;
-            document.getElementById('recorder-status-msg').innerHTML = `
-                <span style="color:var(--danger); font-weight:bold;">
-                    <span class="recording-pulse-indicator"></span> Recording Live Audio...
-                </span>`;
-        } catch (err) {
-            alert("Microphone configuration access denied or unsupported. Please check system context security scopes.");
-            console.error(err);
-        }
+            // Switch UI to Review State
+            const previewPlayer = document.getElementById('temp-audio-preview');
+            previewPlayer.src = currentAudioBlobUrl;
+
+            document.getElementById('recorder-status-msg').innerHTML = `<span style="color: var(--success); font-weight: bold;">✓ Recording captured successfully!</span>`;
+            document.getElementById('playback-review-container').style.display = 'block';
+            document.getElementById('recorder-action-buttons').style.display = 'none';
+            document.getElementById('recorder-review-buttons').style.display = 'flex';
+        };
+
+        mediaRecorderInstance.start();
+        
+        document.getElementById('btn-start-record').disabled = true;
+        document.getElementById('btn-stop-record').disabled = false;
+        document.getElementById('recorder-status-msg').innerHTML = `
+            <span style="color:var(--danger); font-weight:bold;">
+                <span class="recording-pulse-indicator"></span> Recording Live Audio...
+            </span>`;
+    } catch (err) {
+        alert("Microphone configuration access denied or unsupported. Please check system context security scopes.");
+        console.error(err);
     }
+}
+
 function stopUserVoiceCapture() {
-        if (mediaRecorderInstance && mediaRecorderInstance.state !== "inactive") {
-            mediaRecorderInstance.stop();
-            // This triggers the mediaRecorderInstance.onstop event handler
-        }
+    if (mediaRecorderInstance && mediaRecorderInstance.state !== "inactive") {
+        mediaRecorderInstance.stop();
+    }
+}
+
+function restartUserVoiceCapture() {
+    document.getElementById('playback-review-container').style.display = 'none';
+    document.getElementById('recorder-review-buttons').style.display = 'none';
+    document.getElementById('recorder-action-buttons').style.display = 'flex';
+
+    document.getElementById('btn-start-record').disabled = false;
+    document.getElementById('btn-stop-record').disabled = true;
+    document.getElementById('recorder-status-msg').innerHTML = `<span style="font-size: 12px; color: var(--text-muted);">Ready to re-record</span>`;
+    audioDataChunks = [];
+    currentAudioBlobUrl = null;
+}
+
+function submitConfirmedVoiceCapture() {
+    document.getElementById('recorder-overlay').classList.remove('active');
+    const previewPlayer = document.getElementById('temp-audio-preview');
+    previewPlayer.pause();
+
+    advanceDialogueSimulationTree(pendingTargetChoiceText, pendingTargetNextNodeKey, currentAudioBlobUrl);
+}
     }
 let activeSimTrackKey = null;
 let activeSimNodeKey = null;
