@@ -544,18 +544,18 @@ function selectTrackAndTriggerBriefingOverlay(trackKey) {
         document.getElementById('primer-overlay').classList.add('active');
     }
 function rebuildSimMenuUi() {
-        const container = document.getElementById('menu-options-container');
-        if (!container) return;
-        container.innerHTML = '';
+    const container = document.getElementById('menu-options-container');
+    if (!container) return;
+    container.innerHTML = '';
 
-        Object.keys(scenarios).forEach(key => {
-            const btn = document.createElement('button');
-            btn.className = 'menu-btn';
-            btn.innerHTML = `<strong>${scenarios[key].label}</strong><br><small style="color:var(--text-muted);">Opponent: ${scenarios[key].partner}</small>`;
-            btn.onclick = () => selectTrackAndTriggerBriefingOverlay(key);
-            container.appendChild(btn);
-        });
-    }
+    Object.keys(scenarios).forEach(key => {
+        const btn = document.createElement('button');
+        btn.className = 'menu-btn';
+        btn.innerHTML = `<strong>${scenarios[key].label}</strong><br><small style="color:var(--text-muted);">Opponent: ${scenarios[key].partner}</small>`;
+        btn.onclick = () => selectTrackAndTriggerBriefingOverlay(key);
+        container.appendChild(btn);
+    });
+}
 function executeTextToSpeechSynthesis(scriptContentText, targetGenderProfile) {
     if (!('speechSynthesis' in window)) return;
 
@@ -716,7 +716,6 @@ function submitConfirmedVoiceCapture() {
 
     advanceDialogueSimulationTree(pendingTargetChoiceText, pendingTargetNextNodeKey, currentAudioBlobUrl);
 }
-    }
 let activeSimTrackKey = null;
 let activeSimNodeKey = null;
 let globalAudioPlayerElement = new Audio();
