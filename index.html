@@ -5,45 +5,350 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Comprehension & Fluency Simulator</title>
     <style>
-        :root { --bg-color: #f8fafc; --sidebar-bg: #ffffff; --primary: #4f46e5; --primary-hover: #4338ca; --text-dark: #0f172a; --text-muted: #475569; --border: #e2e8f0; --bubble-incoming: #f1f5f9; --bubble-outgoing: #4f46e5; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-dark); height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        .preview-panel { width: 100%; max-width: 450px; height: 100%; display: flex; justify-content: center; align-items: center; position: relative; }
-        .phone-wrapper { width: 100%; max-width: 380px; height: 760px; background: #111; border-radius: 40px; padding: 10px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
-        .phone-screen { background-color: #ffffff; width: 100%; height: 100%; border-radius: 32px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
-        .chat-header { background-color: #ffffff; border-bottom: 1px solid var(--border); padding: 14px; display: flex; align-items: center; gap: 10px; }
-        .avatar { width: 36px; height: 36px; border-radius: 50%; background-color: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
-        .header-info h2 { font-size: 14px; color: var(--text-dark); }
-        .header-info p { font-size: 11px; color: var(--success); }
-        .screen { display: none; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
-        .screen.active { display: flex; }
-        #menu-screen { padding: 50px 20px 30px 20px; justify-content: flex-start; text-align: center; overflow-y: auto; }
-        .menu-btn { width: 100%; background: white; border: 2px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; text-align: left; cursor: pointer; }
-        .chat-history { flex-grow: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #fafafa; }
-        .msg-wrapper { display: flex; flex-direction: column; max-width: 85%; animation: fadeIn 0.3s ease forwards; }
-        .msg-wrapper.incoming { align-self: flex-start; }
-        .msg-wrapper.outgoing { align-self: flex-end; }
-        .msg { padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.4; word-wrap: break-word; }
-        .msg-wrapper.incoming .msg { background-color: var(--bubble-incoming); color: var(--primary); border-top-left-radius: 4px; cursor: pointer; font-weight: 500; border: 1px solid rgba(79, 70, 229, 0.15); }
-        .msg-wrapper.outgoing .msg { background-color: var(--bubble-outgoing); color: white; border-top-right-radius: 4px; }
-        .msg-audio-player { margin-top: 6px; width: 100%; max-width: 200px; height: 25px; border-radius: 4px; }
-        .action-panel { background: white; border-top: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
-        .choice-btn { background: #f9fafb; border: 1px solid var(--border); padding: 10px 12px; border-radius: 10px; cursor: pointer; text-align: left; font-size: 12px; }
-        .btn { padding: 8px 14px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
-        .btn-danger { background: var(--danger); }
-        .primer-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; display: none; justify-content: center; align-items: center; padding: 16px; }
-        .primer-overlay.active { display: flex; }
-        .primer-modal { background: white; border-radius: 20px; padding: 20px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .recorder-modal { background: white; border-radius: 20px; padding: 24px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .script-quote-box { background: #f8fafc; border-left: 4px solid var(--primary); padding: 12px; font-style: italic; font-size: 13px; text-align: left; margin: 14px 0; color: var(--text-dark); max-height: 120px; overflow-y: auto; }
-        .recording-pulse-indicator { width: 14px; height: 14px; background-color: var(--danger); border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse-glow 1s infinite alternate; vertical-align: middle; }
-        .outcome-card { padding: 14px; border-radius: 12px; text-align: center; margin-top: 10px; }
-        .outcome-card.win { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-        .outcome-card.fail { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-        .outcome-card.excuse { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse-glow { from { opacity: 0.4; transform: scale(0.9); } to { opacity: 1; transform: scale(1.1); } }
+      :root { 
+    --bg-color: #f8fafc; 
+    --sidebar-bg: #ffffff; 
+    --primary: #4f46e5; 
+    --primary-hover: #4338ca; 
+    --text-dark: #0f172a; 
+    --text-muted: #475569; 
+    --border: #e2e8f0; 
+    --bubble-incoming: #f1f5f9; 
+    --bubble-outgoing: #4f46e5; 
+    --success: #10b981; 
+    --danger: #ef4444; 
+    --warning: #f59e0b; 
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+}
+
+body { 
+    background-color: var(--bg-color); 
+    color: var(--text-dark); 
+    height: 100vh; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    overflow: hidden; 
+}
+
+.preview-panel { 
+    width: 100%; 
+    max-width: 450px; 
+    height: 100%; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    position: relative; 
+}
+
+.phone-wrapper { 
+    width: 100%; 
+    max-width: 380px; 
+    height: 760px; 
+    background: #111; 
+    border-radius: 40px; 
+    padding: 10px; 
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+    display: flex; 
+    flex-direction: column; 
+}
+
+.phone-screen { 
+    background-color: #ffffff; 
+    width: 100%; 
+    height: 100%; 
+    border-radius: 32px; 
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    position: relative; 
+}
+
+.chat-header { 
+    background-color: #ffffff; 
+    border-bottom: 1px solid var(--border); 
+    padding: 14px; 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+}
+
+.avatar { 
+    width: 36px; 
+    height: 36px; 
+    border-radius: 50%; 
+    background-color: var(--primary); 
+    color: white; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-weight: bold; 
+    font-size: 14px; 
+}
+
+.header-info h2 { 
+    font-size: 14px; 
+    color: var(--text-dark); 
+}
+
+.header-info p { 
+    font-size: 11px; 
+    color: var(--success); 
+}
+
+.screen { 
+    display: none; 
+    flex-direction: column; 
+    height: 100%; 
+    width: 100%; 
+    overflow: hidden; 
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.screen.active { 
+    display: flex; 
+}
+
+#menu-screen { 
+    padding: 30px 20px 30px 20px; 
+    justify-content: flex-start; 
+    text-align: center; 
+    overflow-y: auto; 
+}
+
+.menu-btn { 
+    width: 100%; 
+    background: white; 
+    border: 2px solid var(--border); 
+    border-radius: 12px; 
+    padding: 14px; 
+    margin-bottom: 10px; 
+    text-align: left; 
+    cursor: pointer; 
+    transition: all 0.2s ease;
+}
+
+.menu-btn:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+.chat-history { 
+    flex-grow: 1; 
+    padding: 14px; 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    background: #fafafa; 
+}
+
+.msg-wrapper { 
+    display: flex; 
+    flex-direction: column; 
+    max-width: 85%; 
+    animation: fadeIn 0.3s ease forwards; 
+}
+
+.msg-wrapper.incoming { 
+    align-self: flex-start; 
+}
+
+.msg-wrapper.outgoing { 
+    align-self: flex-end; 
+}
+
+.msg { 
+    padding: 10px 14px; 
+    border-radius: 16px; 
+    font-size: 13px; 
+    line-height: 1.4; 
+    word-wrap: break-word; 
+}
+
+.msg-wrapper.incoming .msg { 
+    background-color: var(--bubble-incoming); 
+    color: var(--primary); 
+    border-top-left-radius: 4px; 
+    cursor: pointer; 
+    font-weight: 500; 
+    border: 1px solid rgba(79, 70, 229, 0.15); 
+}
+
+.msg-wrapper.outgoing .msg { 
+    background-color: var(--bubble-outgoing); 
+    color: white; 
+    border-top-right-radius: 4px; 
+}
+
+.msg-audio-player { 
+    margin-top: 6px; 
+    width: 100%; 
+    max-width: 200px; 
+    height: 25px; 
+    border-radius: 4px; 
+}
+
+.action-panel { 
+    background: white; 
+    border-top: 1px solid var(--border); 
+    padding: 14px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 6px; 
+    max-height: 220px; 
+    overflow-y: auto; 
+}
+
+.choice-btn { 
+    background: #f9fafb; 
+    border: 1px solid var(--border); 
+    padding: 10px 12px; 
+    border-radius: 10px; 
+    cursor: pointer; 
+    text-align: left; 
+    font-size: 12px; 
+    transition: background 0.15s ease;
+}
+
+.choice-btn:hover {
+    background: #f1f5f9;
+    border-color: var(--primary);
+}
+
+.btn { 
+    padding: 8px 14px; 
+    background: var(--primary); 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    font-size: 13px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    transition: background 0.2s;
+}
+
+.btn:hover {
+    background: var(--primary-hover);
+}
+
+.btn-secondary { 
+    background: transparent; 
+    color: var(--text-muted); 
+    border: 1px solid var(--border); 
+}
+
+.btn-secondary:hover {
+    background: #f1f5f9;
+    color: var(--text-dark);
+}
+
+.btn-danger { 
+    background: var(--danger); 
+}
+
+.primer-overlay { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    background: rgba(0,0,0,0.5); 
+    z-index: 100; 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    padding: 16px; 
+}
+
+.primer-overlay.active { 
+    display: flex; 
+}
+
+.primer-modal { 
+    background: white; 
+    border-radius: 20px; 
+    padding: 20px; 
+    width: 100%; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+}
+
+.recorder-modal { 
+    background: white; 
+    border-radius: 20px; 
+    padding: 24px; 
+    width: 100%; 
+    max-width: 320px; 
+    text-align: center; 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+}
+
+.script-quote-box { 
+    background: #f8fafc; 
+    border-left: 4px solid var(--primary); 
+    padding: 12px; 
+    font-style: italic; 
+    font-size: 13px; 
+    text-align: left; 
+    margin: 14px 0; 
+    color: var(--text-dark); 
+    max-height: 120px; 
+    overflow-y: auto; 
+}
+
+.recording-pulse-indicator { 
+    width: 14px; 
+    height: 14px; 
+    background-color: var(--danger); 
+    border-radius: 50%; 
+    display: inline-block; 
+    margin-right: 6px; 
+    animation: pulse-glow 1s infinite alternate; 
+    vertical-align: middle; 
+}
+
+.outcome-card { 
+    padding: 14px; 
+    border-radius: 12px; 
+    text-align: center; 
+    margin-top: 10px; 
+}
+
+.outcome-card.win { 
+    background: #ecfdf5; 
+    color: #065f46; 
+    border: 1px solid #a7f3d0; 
+}
+
+.outcome-card.fail { 
+    background: #fef2f2; 
+    color: #991b1b; 
+    border: 1px solid #fca5a5; 
+}
+
+.outcome-card.excuse { 
+    background: #fef3c7; 
+    color: #92400e; 
+    border: 1px solid #fde68a; 
+}
+
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(5px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+@keyframes pulse-glow { 
+    from { opacity: 0.4; transform: scale(0.9); } 
+    to { opacity: 1; transform: scale(1.1); } 
+}
     </style>
 </head>
 <body>
